@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>ChatApp - Professional Messaging</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <link rel="stylesheet" href="/css/styles.css" type="text/css">
+</head>
+<body>
+    <!-- Connection Status Indicator -->
+    <div id="connectionStatus" class="connection-status disconnected">
+        ❌ Disconnected
+    </div>
+
+    <div class="chat-container">
+        <!-- Login Screen -->
+        <div class="login-screen" id="loginScreen">
+            <div class="login-box">
+                <h2>💬 ChatApp</h2>
+                <input type="text" id="username" class="login-input" placeholder="Enter your name" maxlength="20" autocomplete="off">
+                
+                <div class="profile-upload-container">
+                    <div class="profile-preview" id="profilePreview">
+                        <div class="profile-placeholder">+</div>
+                    </div>
+                    <label for="profileUpload" class="upload-btn">Upload Profile Picture</label>
+                    <input type="file" id="profileUpload" accept="image/*">
+                    <div class="file-size-warning">Max 100KB (will be auto-compressed)</div>
+                </div>
+                
+                <button class="login-btn" id="joinBtn">
+                    <span>Start Chatting</span>
+                    <span style="margin-left: 8px;">🚀</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar" style="display: none;">
+            <div class="user-header">
+                <div class="current-user-avatar" id="currentUserAvatar">
+                    <div class="profile-placeholder">U</div>
+                </div>
+                <div class="user-header-info">
+                    <h3 id="currentUser">Welcome!</h3>
+                    <div class="user-status" id="connectionStatusText">Offline</div>
+                </div>
+            </div>
+            
+            <div class="chat-selection">
+                <button class="chat-type-btn active" data-chat-type="public" id="publicChatBtn">
+                    🌐 Public Chat
+                </button>
+                <button class="chat-type-btn" data-chat-type="private" id="privateChatBtn">
+                    🔒 Private Chat
+                </button>
+            </div>
+            
+            <div class="active-users">
+                <h4>Active Users <span id="usersCount">(0)</span></h4>
+                <ul class="user-list" id="userList">
+                    <div class="no-users" id="noUsers">No active users</div>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area" id="chatArea" style="display: none;">
+            <div class="chat-header">
+                <div class="chat-header-avatar" id="chatHeaderAvatar">
+                    <div class="profile-placeholder">G</div>
+                </div>
+                <div class="chat-header-info">
+                    <h3 id="chatWith">Public Chat</h3>
+                    <div class="chat-type" id="chatType">Everyone can see these messages</div>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="message system">
+                    <div class="message-bubble">
+                        <div class="message-content">Welcome to the chat! Start by sending a message.</div>
+                        <div class="message-time" id="currentTime"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Call Controls -->
+            <div class="call-controls">
+                <button class="call-btn" id="audioCallBtn" title="Start Audio Call">
+                    📞 Start Call
+                </button>
+                <button class="call-btn end-call-btn" id="endCallBtn" title="End Call" style="display: none;">
+                    ❌ End Call
+                </button>
+            </div>
+            
+            <!-- Input Area -->
+            <div class="input-area">
+                <input type="text" id="receiver" class="receiver-input" placeholder="To: (Public)" autocomplete="off">
+                <div class="message-input-container">
+                    <input type="text" id="message" class="message-input" placeholder="Type a message..." autocomplete="off">
+                    
+                    <button class="file-btn" id="fileBtn" type="button" title="Attach file">
+                        📎
+                    </button>
+                    
+                    <input type="file" id="fileUpload" accept="image/*,video/*,.pdf,.doc,.docx,.txt" style="display: none">
+                    
+                    <button class="send-btn" id="sendBtn" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Preview Modal -->
+        <div class="modal" id="filePreviewModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Send File</h3>
+                    <span class="close-btn" id="closeModal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="filePreview"></div>
+                    <input type="text" id="fileCaption" class="file-caption-input" placeholder="Add a caption (optional)">
+                </div>
+                <div class="modal-footer">
+                    <button class="cancel-btn" id="cancelSend">Cancel</button>
+                    <button class="send-file-btn" id="sendFileBtn">Send File</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call Modal -->
+        <div class="modal" id="callModal">
+            <div class="modal-content call-modal">
+                <div class="modal-header">
+                    <h3 id="callTitle">Incoming Call</h3>
+                    <span class="close-btn" id="closeCallModal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="call-info">
+                        <div class="call-avatar" id="callAvatar">
+                            <div class="profile-placeholder">U</div>
+                        </div>
+                        <div class="call-details">
+                            <h4 id="callerName">Unknown</h4>
+                            <div class="call-status" id="callStatus">Connecting...</div>
+                            <div class="call-timer" id="callTimer">00:00</div>
+                        </div>
+                    </div>
+                    
+                    <div class="call-controls-buttons">
+                        <button class="call-action-btn accept-call" id="acceptCallBtn">
+                            <span>📞</span>
+                            <span>Accept</span>
+                        </button>
+                        <button class="call-action-btn reject-call" id="rejectCallBtn">
+                            <span>❌</span>
+                            <span>Reject</span>
+                        </button>
+                        <button class="call-action-btn end-call" id="endCallBtnModal" style="display: none;">
+                            <span>📞</span>
+                            <span>End Call</span>
+                        </button>
+                        <button class="call-action-btn mute-call" id="muteCallBtn" style="display: none;">
+                            <span>🎤</span>
+                            <span>Mute</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call Notification -->
+        <div class="call-notification" id="callNotification" style="display: none;">
+            <div class="notification-content">
+                <div class="notification-icon">📞</div>
+                <div class="notification-text">
+                    <strong id="notificationCaller">User</strong> is calling you...
+                </div>
+                <div class="notification-actions">
+                    <button class="notification-btn accept" id="notificationAccept">Answer</button>
+                    <button class="notification-btn reject" id="notificationReject">Decline</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/js/script.js"></script>
+</body>
+</html>
