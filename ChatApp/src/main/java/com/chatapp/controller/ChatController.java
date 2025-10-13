@@ -208,4 +208,5 @@ public class ChatController {
         System.out.println("User list updated and sent");
         System.out.println("=== USER LIST UPDATED ===");
     }
+
 }
